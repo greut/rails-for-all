@@ -1,0 +1,27 @@
+version: '2'
+
+services:
+  system:
+    image: greut/manyrails
+    build: .
+    hostname: capistrano
+    ports:
+      - "2222:22"
+      - "8080:80"
+    environment:
+      - POSTGRES_HOST=postgres
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:9.6-alpine
+    environment:
+      - POSTGRES_PASSWORD=root
+      - POSTGRES_PGDATA=/var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+     - postgres:/var/lib/postgresql/data
+
+volumes:
+  postgres:
