@@ -2,12 +2,15 @@
 """
 Create tons of users and set up their Ruby on Rails installation.
 
-/home/user/config/nginx.conf
-                 /puma.rb
-          /env
-          /www/app/...
-          /.ssh/authorized_keys
+/home/user
+          /.env                  # runit
+          /.envfile              # systemd
           /.profile
+          /.ssh/authorized_keys
+          /config/nginx.conf
+                 /puma.rb
+          /logs
+          /www/app/...
 """
 
 import multiprocessing
@@ -91,17 +94,26 @@ def init_user(user, environ):
     environ["BUNDLE_PATH"] = os.environ["BUNDLE_PATH"]
 
     # update .profile and env directory (for chpst)
-    os.mkdir('env')
+    os.mkdir('.env')
     for key in ('GEM_HOME', 'SECRET_KEY_BASE', 'PASSWORD', 'GROUPNAME',
                 'POSTGRES_HOST', 'POSTGRES_PORT', 'HOME', 'PATH',
                 'BUNDLE_PATH'):
+        # Bash
         with open('.profile', 'a', encoding='utf-8') as f:
             f.write('''\
 export {key}="{value}"
 '''.format(
                 key=key, value=environ[key]))
 
-        with open('env/{}'.format(key), 'w', encoding='utf-8') as f:
+        # Systemd
+        with open('.envfile', 'a', encoding='utf-8') as f:
+            f.write('''\
+{key}="{value}"
+'''.format(
+                key=key, value=environ[key]))
+
+        # Runit
+        with open('.env/{}'.format(key), 'w', encoding='utf-8') as f:
             f.write(environ[key])
 
     with open('.profile', 'a', encoding="utf-8") as f:
@@ -292,6 +304,7 @@ def main():
             os.symlink("{}/config/nginx.conf".format(homedir),
                        "/etc/nginx/sites-enabled/{}.conf".format(user.name))
             # Puma
+            os.makedirs('/etc/service', exist_ok=True)  # if no runit
             os.mkdir('/etc/service/puma-{}'.format(user.name))
             with open('/etc/service/puma-{}/run'.format(user.name), 'w') as f:
                 f.write('''\
@@ -301,7 +314,7 @@ export HOME="/home/{user.name}"
 export PATH="$PATH:$HOME/{gem_home}/bin"
 cd "$HOME/www/app"
 
-ENV_DIR="$HOME/env"
+ENV_DIR="$HOME/.env"
 PUMA_ENV="../../config/puma.rb"
 COMMAND="bundle exec puma --config $PUMA_ENV"
 
@@ -309,6 +322,28 @@ exec 2>&1
 exec chpst -u "{user.name}" -e "$ENV_DIR" $COMMAND
                     '''.format(
                     user=user, gem_home=environ["GEM_HOME"]))
+            # Systemd
+            os.makedirs(
+                '/etc/systemd/system/multi-user.target.wants',
+                exist_ok=True)  # if no systemd
+            with open(
+                    '/etc/systemd/system/multi-user.target.wants/puma-{}.service'.
+                    format(user.name), 'w') as f:
+                f.write('''\
+[Unit]
+Description=Puma HTTP Server for {user.name}
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/{user.name}/www/app
+User={user.name}
+EnvironmentFile=-/home/{user.name}/.envfile
+ExecStart=bundle exec puma --config ../../config/puma.rb
+
+[Install]
+WantedBy=multi-user.target
+''')
 
             os.chmod('/etc/service/puma-{}/run'.format(user.name), 0o0755)
             with open(

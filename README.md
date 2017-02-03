@@ -28,4 +28,5 @@ For local development, put the hostname into your `/etc/hosts`.
 
 Currently, it's configured against runit, but should be adapted for the real systemd deal.
 
-- [ ] create systemd script for puma-*
+- [x] create systemd script for puma-username
+- [ ] test systemd script for puma-username

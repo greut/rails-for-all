@@ -38,6 +38,7 @@ apt-get install -q -y \
     libyaml-dev \
     lsof \
     man \
+    mysql-client-${MYSQL_VERSION} \
     nano \
     nginx \
     openssh-server \
@@ -91,9 +92,7 @@ apt-get update
 apt-get install -q -y \
     libpq-dev \
     nodejs \
-    postgresql-${POSTGRES_VERSION} \
     postgresql-client-${POSTGRES_VERSION} \
-    postgresql-contrib-${POSTGRES_VERSION} \
     ruby${RUBY_VERSION} \
     ruby${RUBY_VERSION}-dev \
     ruby-switch
