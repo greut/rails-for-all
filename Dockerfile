@@ -8,22 +8,18 @@ ADD install.sh /
 RUN sh /install.sh \
  && rm /install.sh
 
+EXPOSE 22 80
+
 # Runit
-ARG group=developers
 ADD nginx.sh /etc/service/nginx/run
 ADD sshd.sh /etc/service/sshd/run
-RUN addgroup $group \
- && chmod +x /etc/service/nginx/run \
- && chmod +x /etc/service/sshd/run \
- && chgrp -R $group /etc/service/nginx
+RUN chmod +x /etc/service/nginx/run \
+ && chmod +x /etc/service/sshd/run
 
 # Bootstrap
 ADD boot.sh /usr/local/bin/boot.sh
 ADD configure.py /usr/local/bin/configure.py
 RUN chmod +x /usr/local/bin/boot.sh \
  && chmod +x /usr/local/bin/configure.py
-
-
-EXPOSE 22 80
 
 CMD [ "/usr/local/bin/boot.sh" ]
