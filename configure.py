@@ -2,15 +2,16 @@
 """
 Create tons of users and set up their Ruby on Rails installation.
 
-/home/user/conf/nginx.conf
-               /puma.rb
-          /www/...
+/home/user/config/nginx.conf
+                 /puma.rb
+          /www/app/...
           /.ssh/authorized_keys
           /.profile
 """
 
 import multiprocessing
 import os
+import logging
 import pwd
 import random
 import subprocess
@@ -24,6 +25,10 @@ id_rsa_pub = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDVHwpNj+Fdh2zfi+SXnJrOFqC0Z3
 
 users = User('yoan', [id_rsa_pub, ]), User('david', [id_rsa_pub, ])
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logger.addHandler(logging.StreamHandler())
+
 
 def pwgen(length=64):
     """Generate a secure password."""
@@ -34,6 +39,7 @@ def pwgen(length=64):
 
 
 def create_user(user, password, groupname):
+    logger.info('create user %s', user.name)
     subprocess.check_call(
         [
             "useradd", user.name, "--create-home", "--shell", "/bin/bash",
@@ -51,6 +57,7 @@ def create_user(user, password, groupname):
 
 
 def init_user(user, environ):
+    logger.info('init user %s', user.name)
     username = user.name
     p = pwd.getpwnam(username)
     uid, gid = p.pw_uid, p.pw_gid
@@ -67,6 +74,9 @@ def init_user(user, environ):
     os.environ["USER"] = username
     os.environ["HOME"] = homedir
     os.environ["UID"] = str(uid)
+    os.environ["PATH"] = "{}/{}/bin:{}".format(homedir, environ["GEM_HOME"],
+                                               os.environ["PATH"])
+    os.environ["GEM_HOME"] = "{}/{}".format(homedir, environ["GEM_HOME"])
 
     # update .profile with environ
     with open('.profile', 'a', encoding="utf-8") as f:
@@ -103,6 +113,12 @@ POSTGRES_PORT="{POSTGRES_PORT}"
     # Ruby gem config
     with open('.gemrc', 'w', encoding="utf-8") as f:
         f.write('gem: --user-install\n')
+    subprocess.check_call(
+        ['gem', 'install', 'bundler'],
+        env=os.environ,
+        stdin=subprocess.PIPE,
+        stdout=sys.stdout,
+        stderr=sys.stderr)
 
     # Postgresql config
     with open('.pgpass', 'w', encoding="utf-8") as f:
@@ -117,11 +133,11 @@ POSTGRES_PORT="{POSTGRES_PORT}"
         f.write('\n'.join(user.ssh_keys))
     os.chmod(".ssh/authorized_keys", mode=0o0600)
 
-    os.mkdir("conf")
-    with open('conf/nginx.conf', 'w') as f:
+    os.mkdir("config")
+    with open('config/nginx.conf', 'w') as f:
         f.write('''
 upstream puma-{GROUPNAME} {{
-    server unix:/tmp/{GROUPNAME}/puma.sock fail_timeout=0;
+    server unix:/tmp/puma-{GROUPNAME}.sock fail_timeout=0;
 }}
 
 server {{
@@ -130,7 +146,7 @@ server {{
 
     client_max_body_size 4G;
 
-    root /home/{GROUPNAME}/www;
+    root /home/{GROUPNAME}/www/app/public;
     index index.html index.htm;
 
     access_log /home/{GROUPNAME}/logs/access.log;
@@ -152,8 +168,49 @@ server {{
     keepalive_timeout 10;
 }}
                 '''.format(**environ))
-    os.mkdir("www")
+    with open('config/puma.rb', 'w') as f:
+        f.write('''\
+#!/usr/bin/env puma
+
+#environment "development"
+#environment "staging"
+environment "production"
+
+threads 0, 16
+workers 1
+
+directory "/home/{GROUPNAME}/www/app"
+bind "unix:///tmp/puma-{GROUPNAME}.sock"
+
+plugin :tmp_restart
+
+stdout_redirect "/home/{GROUPNAME}/logs/puma.out", "/home/{GROUPNAME}/logs/puma.err", true
+                '''.format(**environ))
+
     os.mkdir("logs")
+
+    # www
+    os.makedirs("www/app/public")
+    with open('www/app/config.ru', 'w', encoding='utf-8') as f:
+        f.write('''\
+run Proc.new {{ |env| ['200', {{'Content-Type' => 'text/plain'}}, ['Hello {GROUPNAME}!']] }}
+'''.format(**environ))
+    with open('www/app/Gemfile', 'w', encoding='utf-8') as f:
+        f.write('''\
+# frozen_string_literal: true
+source 'https://rubygems.org'
+
+gem 'puma'
+gem 'rack'
+                ''')
+
+    os.chdir('www/app')
+    subprocess.check_call(
+        ['bundler', 'install'],
+        env=os.environ,
+        stdin=subprocess.PIPE,
+        stdout=sys.stdout,
+        stderr=sys.stderr)
 
     return 0
 
@@ -179,27 +236,63 @@ def main():
         p.start()
         p.join()
 
+        logger.info('give rights to www-data to our folders')
+
         # Give rights to nginx
         homedir = "/home/{}".format(user.name)
         os.chdir(homedir)
         subprocess.check_call(
             [
-                "setfacl", "-R", "-m", "user:www-data:rwx", "conf", "www",
+                "setfacl", "-R", "-m", "user:www-data:rwx", "config", "www",
                 "logs"
             ],
             stdout=sys.stdout,
             stderr=sys.stderr)
         subprocess.check_call(
             [
-                "setfacl", "-dR", "-m", "user:www-data:rwx", "conf", "www",
+                "setfacl", "-dR", "-m", "user:www-data:rwx", "config", "www",
                 "logs"
             ],
             stdout=sys.stdout,
             stderr=sys.stderr)
-        # Symlink
-        os.symlink("{}/conf/nginx.conf".format(homedir),
+        # enable site in nginx
+        os.symlink("{}/config/nginx.conf".format(homedir),
                    "/etc/nginx/sites-enabled/{}.conf".format(user.name))
-        # TODO: /etc/service/puma-groupname/run
+        # Puma
+        os.mkdir('/etc/service/puma-{}'.format(user.name))
+        with open('/etc/service/puma-{}/run'.format(user.name), 'w') as f:
+            f.write('''\
+#!/bin/sh
+
+set -xe
+
+exec 2>&1
+
+export HOME="/home/{user.name}"
+
+# Import environment variables.
+set -a
+. $HOME/.profile
+set +a
+
+cd "$HOME/www/app"
+
+PUMA_ENV="../../config/puma.rb"
+COMMAND="bundle exec puma --config $PUMA_ENV"
+
+exec chpst -u {user.name} $COMMAND
+                    '''.format(user=user))
+        os.chmod('/etc/service/puma-{}/run'.format(user.name), 0o0755)
+        with open(
+                '/etc/sudoers.d/{}'.format(user.name), 'w',
+                encoding='utf-8') as f:
+            f.write('''\
+{user.name} ALL = (root) NOPASSWD: /usr/bin/sv restart nginx, /usr/bin/sv reload nginx
+{user.name} ALL = (root) NOPASSWD: /usr/bin/sv restart puma-{user.name}, /usr/bin/sv reload puma-{user.name}
+                    '''.format(user=user))
+        os.chmod('/etc/sudoers.d/{}'.format(user.name), 0o0600)
+
+        logger.info('sudo sv restart/reload nginx/puma-%s', user.name)
 
 
 if __name__ == "__main__":
