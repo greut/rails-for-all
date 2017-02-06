@@ -13,6 +13,7 @@ Create tons of users and set up their Ruby on Rails installation.
           /www/app/...
 """
 
+import json
 import multiprocessing
 import os
 import logging
@@ -22,24 +23,42 @@ import subprocess
 import sys
 import tempfile
 
-from collections import namedtuple
-
-User = namedtuple('User', 'name ssh_keys')
-
-USERS = (User('yoan', (
-    'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDVHwpNj+Fdh2zfi+SXnJrOFqC0Z30VV8ta5aaXUCPvas9sDDDZyEXRdwdbydUkLyXd9a/6eHD5I//JmZ0FKT4zRqtB5Xwu+gjMGVtMXc+qsAPIMPsrYGRYHL14m6prQB4myjTJZmGB5Auf9N6rYFOE01bkoZfU3wYpwZP0t2vCAYJwoN20d5H87i0KB6SngamdgIMXH+h7lJcbBGZBxGTL4r0U1SqLTkTGCZ/+7JYQJWNAZKZtMvCyx7KKI03ZR0+SjFSMIurtS8tiVHyAgZ2luyKtH6NlR6O7RDZr0aeONnbDIDHnoaOxVSlTDxHcTXfFDhZhkCTiHUUyr2eseIpH',
-)), User('david', (
-    'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCYNRTPsKPGniLSzrzhar2N5b90+At1ejBzoRQP3orxcBdRkcNlFdGVL1fk4nYx1GXZNUT9P0Z+jiQjXAk2B/otIEzsBZ+JrkviplWAYZ7qYAZUlTh9o6PdechQlxtAZO4Tys6k0K15GLtZboK7KHJOme5tEszRGGDcFsQRR7QUUM7g39dckUlrfNxkeU196Vo+ZKJ2sDGCc0Pbrm4hCTL/1UzDTVZs7nV0kpnpOXNXKdjGtkwEc03+kcRPs9eb1KKiKxFdHxjc+F56kklF54s/cY8TTyw79SFDRD3/Hc36ldhxGrgxoSKFhVIWyF3mA+n5E87L8H0fsh3MLb1BlIgCMIE82Va9o60a5a9a/Aba+odaMmB/NBO3uD6TX7Ny1Cq61vXa8jnW07/aSYFdPy4r/Y4xW7eovuldRHpdGZub7hwkoUpKc7Iechgcqf+u2JFsfovpGNPBTclVqrBpUJ66y54Gj5SHhgOPRJoMgMN/PNTdAGyZVGDWbGWT5OuVWFF4Q4y/hOJGQSbGaq68Kft6IzLRF0owQctKahwJ1JZEVv3iSLI+NodfdZPxgBqSkZDCZNs6BK2HoPqIjmR5ECkT2ePWAT54cwwlu6DoyymytOTVyCBTQreuDo/zd9Id9fPfAWwrhCs8qYZ7Vgd3Cg97v+M55Vah2vI9HEmVN/Lpzw==',
-    'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCpcwue83WhRX49KkdKP3YfkigBiFaLaQjwmEfHy2RbS2ub9GOPCxX9k0vK2lUm0hTg8iFRJIKla/dsJ1H2fH2hMfqnJ0d5MRIA6uaHVu4huNtNkFAGNy5C2SgYhENqp49iUSs0D3DoEq72n2e9cqGlxWbq3KBHcb6GJY/Z5Z8vRvdzM8PUMAlTQj2N2Q0vi+RtryHIj7zr2fwlwAlex0A+NtshT9+80EHJZS2aizOIHeF3zKkFSJ1+6ttEBj0hTN6Alzk9+h0F0obgt1LYGkYohhkcQuQ0k0tb6fVgsymlo1vopIBzUGXCXtygCpVaFe6W3MZnoIv4lCceNTzRn+m5'
-)), User('raphael', (
-    'ssh-dss AAAAB3NzaC1kc3MAAACBAOzL/oLzDj3wRYhMl+EAv7vExo/Ss4Qk5RAXBfwnJVu1Nm8d1h/TY4uaxDlbBoKDitqe4i5Qqt8NTpl576qCPyrnZqfjDQAKsVtSt+Vv0Gf5OqUE+MFr89EWa/Y5fh0cOe7etPZ8PjrRJiicZHcKMLcXakLedGaL2MMsN9zTKnDDAAAAFQCh+kmfSr+CDHe9Q07Bm1iS1bizRwAAAIBK04rSeNxOmTOOBzWDQz0Kk5I6dTrApXwc+4Alj9XjjKHcV1HFwmFbOm2eQFU0pTOcNo7WhW4zvI6O9shLBgW2CVmrfNOXrR/GORlK/ZbMFFpoQMsuOo/PDb8piV8G3bgHO1+N3gLlfMq+GG+ceBo0jBhjQh9XLe3HvWKkvEy9vQAAAIEA4O05TWpIZTiaihPYiZ1ieTklaF6cWftgp/rXumaat8q4nC6lhi4h5LSP/x7N0zNLj7WVFkzhoa+ESwQKBIRQkLj6/2XPATTEs2Lg2wMbFasvDvUo0PJMZADd2p4OuVXQ913qXzQgPQwJ5Q+n2PQkLRWH+eNmxh8O8b2ToTbTKi8=',
-)))
-HOSTNAME = "capistrano"
-POSTGRES_HOST = "localhost"
-
 # Logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
+with open('/root/accounts.json', 'r', encoding='utf-8') as f:
+    USERS = json.load(f)
+
+if not len(USERS):
+    logger.info('accounts.json is empty. Using the hardcoded folks.')
+    USERS = {
+        'yoan': {
+            'firstname': 'Yoan',
+            'lastname': 'Blanc',
+            'keys':
+            ('ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDVHwpNj+Fdh2zfi+SXnJrOFqC0Z30VV8ta5aaXUCPvas9sDDDZyEXRdwdbydUkLyXd9a/6eHD5I//JmZ0FKT4zRqtB5Xwu+gjMGVtMXc+qsAPIMPsrYGRYHL14m6prQB4myjTJZmGB5Auf9N6rYFOE01bkoZfU3wYpwZP0t2vCAYJwoN20d5H87i0KB6SngamdgIMXH+h7lJcbBGZBxGTL4r0U1SqLTkTGCZ/+7JYQJWNAZKZtMvCyx7KKI03ZR0+SjFSMIurtS8tiVHyAgZ2luyKtH6NlR6O7RDZr0aeONnbDIDHnoaOxVSlTDxHcTXfFDhZhkCTiHUUyr2eseIpH',
+             )
+        },
+        'david': {
+            'firstname': 'David',
+            'lastname': 'Grunenwald',
+            'keys':
+            ('ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCYNRTPsKPGniLSzrzhar2N5b90+At1ejBzoRQP3orxcBdRkcNlFdGVL1fk4nYx1GXZNUT9P0Z+jiQjXAk2B/otIEzsBZ+JrkviplWAYZ7qYAZUlTh9o6PdechQlxtAZO4Tys6k0K15GLtZboK7KHJOme5tEszRGGDcFsQRR7QUUM7g39dckUlrfNxkeU196Vo+ZKJ2sDGCc0Pbrm4hCTL/1UzDTVZs7nV0kpnpOXNXKdjGtkwEc03+kcRPs9eb1KKiKxFdHxjc+F56kklF54s/cY8TTyw79SFDRD3/Hc36ldhxGrgxoSKFhVIWyF3mA+n5E87L8H0fsh3MLb1BlIgCMIE82Va9o60a5a9a/Aba+odaMmB/NBO3uD6TX7Ny1Cq61vXa8jnW07/aSYFdPy4r/Y4xW7eovuldRHpdGZub7hwkoUpKc7Iechgcqf+u2JFsfovpGNPBTclVqrBpUJ66y54Gj5SHhgOPRJoMgMN/PNTdAGyZVGDWbGWT5OuVWFF4Q4y/hOJGQSbGaq68Kft6IzLRF0owQctKahwJ1JZEVv3iSLI+NodfdZPxgBqSkZDCZNs6BK2HoPqIjmR5ECkT2ePWAT54cwwlu6DoyymytOTVyCBTQreuDo/zd9Id9fPfAWwrhCs8qYZ7Vgd3Cg97v+M55Vah2vI9HEmVN/Lpzw==',
+             'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCpcwue83WhRX49KkdKP3YfkigBiFaLaQjwmEfHy2RbS2ub9GOPCxX9k0vK2lUm0hTg8iFRJIKla/dsJ1H2fH2hMfqnJ0d5MRIA6uaHVu4huNtNkFAGNy5C2SgYhENqp49iUSs0D3DoEq72n2e9cqGlxWbq3KBHcb6GJY/Z5Z8vRvdzM8PUMAlTQj2N2Q0vi+RtryHIj7zr2fwlwAlex0A+NtshT9+80EHJZS2aizOIHeF3zKkFSJ1+6ttEBj0hTN6Alzk9+h0F0obgt1LYGkYohhkcQuQ0k0tb6fVgsymlo1vopIBzUGXCXtygCpVaFe6W3MZnoIv4lCceNTzRn+m5'
+             )
+        },
+        'raphael': {
+            'firstname': 'Raphaël',
+            'lastname': 'Emourgeon',
+            'keys':
+            ('ssh-dss AAAAB3NzaC1kc3MAAACBAOzL/oLzDj3wRYhMl+EAv7vExo/Ss4Qk5RAXBfwnJVu1Nm8d1h/TY4uaxDlbBoKDitqe4i5Qqt8NTpl576qCPyrnZqfjDQAKsVtSt+Vv0Gf5OqUE+MFr89EWa/Y5fh0cOe7etPZ8PjrRJiicZHcKMLcXakLedGaL2MMsN9zTKnDDAAAAFQCh+kmfSr+CDHe9Q07Bm1iS1bizRwAAAIBK04rSeNxOmTOOBzWDQz0Kk5I6dTrApXwc+4Alj9XjjKHcV1HFwmFbOm2eQFU0pTOcNo7WhW4zvI6O9shLBgW2CVmrfNOXrR/GORlK/ZbMFFpoQMsuOo/PDb8piV8G3bgHO1+N3gLlfMq+GG+ceBo0jBhjQh9XLe3HvWKkvEy9vQAAAIEA4O05TWpIZTiaihPYiZ1ieTklaF6cWftgp/rXumaat8q4nC6lhi4h5LSP/x7N0zNLj7WVFkzhoa+ESwQKBIRQkLj6/2XPATTEs2Lg2wMbFasvDvUo0PJMZADd2p4OuVXQ913qXzQgPQwJ5Q+n2PQkLRWH+eNmxh8O8b2ToTbTKi8=',
+             )
+        }
+    }
+
+HOSTNAME = "capistrano"
+POSTGRES_HOST = "localhost"
 
 
 def pwgen(length=64):
@@ -50,10 +69,13 @@ def pwgen(length=64):
     return proc.communicate()[0].decode().strip()
 
 
-def create_user(user, password):
-    logger.info('create user %s', user.name)
+def create_user(user, password, comment=""):
+    logger.info('create user %s', user)
     subprocess.check_call(
-        ["useradd", user.name, "--create-home", "--shell", "/bin/bash"],
+        [
+            "useradd", user, "--create-home", "--shell", "/bin/bash",
+            "--comment", comment.encode('ascii', 'ignore')
+        ],
         stderr=subprocess.PIPE,
         stdout=subprocess.PIPE)
 
@@ -62,25 +84,24 @@ def create_user(user, password):
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE)
-    proc.communicate("{}:{}".format(user.name, password).encode("utf-8"))
+    proc.communicate("{}:{}".format(user, password).encode("utf-8"))
 
 
-def init_user(user, environ):
-    logger.info('init user %s', user.name)
-    username = user.name
-    p = pwd.getpwnam(username)
+def init_user(user, keys, environ):
+    logger.info('init user %s', user)
+    p = pwd.getpwnam(user)
     uid, gid = p.pw_uid, p.pw_gid
     homedir = p.pw_dir
 
     # os
-    os.initgroups(username, gid)
+    os.initgroups(user, gid)
     os.setgid(gid)
     os.setuid(uid)
     os.umask(0o027)
     os.chdir(homedir)
 
     # env
-    os.environ["USER"] = username
+    os.environ["USER"] = user
     os.environ["HOME"] = homedir
     os.environ["UID"] = str(uid)
     os.environ["GEM_HOME"] = "{}/{}".format(homedir, environ["GEM_HOME"])
@@ -160,7 +181,7 @@ export GEM_CACHE="$GEM_HOME/cache"
     os.mkdir(".ssh")
     os.chmod(".ssh", mode=0o0700)
     with open('.ssh/authorized_keys', 'w') as f:
-        f.write('\n'.join(user.ssh_keys))
+        f.write('\n'.join(keys))
     os.chmod(".ssh/authorized_keys", mode=0o0600)
 
     os.mkdir("config")
@@ -268,23 +289,26 @@ def main():
         os.chmod(fp.name, mode=0o600)
         environ['PGPASSFILE'] = fp.name
 
-        for user in USERS:
+        for user, config in USERS.items():
             password = pwgen()
-            environ["GROUPNAME"] = user.name
+            environ["GROUPNAME"] = user
             environ["PASSWORD"] = password
             environ["HOSTNAME"] = HOSTNAME
             environ["SECRET_KEY_BASE"] = "{:0128x}".format(
                 random.randrange(16**128))
 
-            create_user(user, password)
-            p = multiprocessing.Process(target=init_user, args=(user, environ))
+            create_user(
+                user,
+                password,
+                comment="{firstname} {lastname}".format(**config))
+            p = multiprocessing.Process(
+                target=init_user, args=(user, config['keys'], environ))
             p.start()
             p.join()
 
-            logger.info('give rights to www-data to our folders')
-
             # Give rights to nginx
-            homedir = "/home/{}".format(user.name)
+            logger.info('give rights to www-data to our folders')
+            homedir = "/home/{}".format(user)
             os.chdir(homedir)
             subprocess.check_call(
                 [
@@ -302,15 +326,15 @@ def main():
                 stderr=sys.stderr)
             # enable site in nginx
             os.symlink("{}/config/nginx.conf".format(homedir),
-                       "/etc/nginx/sites-enabled/{}.conf".format(user.name))
+                       "/etc/nginx/sites-enabled/{}.conf".format(user))
             # Puma
             os.makedirs('/etc/service', exist_ok=True)  # if no runit
-            os.mkdir('/etc/service/puma-{}'.format(user.name))
-            with open('/etc/service/puma-{}/run'.format(user.name), 'w') as f:
+            os.mkdir('/etc/service/puma-{}'.format(user))
+            with open('/etc/service/puma-{}/run'.format(user), 'w') as f:
                 f.write('''\
 #!/bin/sh
 
-export HOME="/home/{user.name}"
+export HOME="/home/{user}"
 export PATH="$PATH:$HOME/{gem_home}/bin"
 cd "$HOME/www/app"
 
@@ -319,7 +343,7 @@ PUMA_ENV="../../config/puma.rb"
 COMMAND="bundle exec puma --config $PUMA_ENV"
 
 exec 2>&1
-exec chpst -u "{user.name}" -e "$ENV_DIR" $COMMAND
+exec chpst -u "{user}" -e "$ENV_DIR" $COMMAND
                     '''.format(
                     user=user, gem_home=environ["GEM_HOME"]))
             # Systemd
@@ -328,36 +352,36 @@ exec chpst -u "{user.name}" -e "$ENV_DIR" $COMMAND
                 exist_ok=True)  # if no systemd
             with open(
                     '/etc/systemd/system/multi-user.target.wants/puma-{}.service'.
-                    format(user.name), 'w') as f:
+                    format(user), 'w') as f:
                 f.write('''\
 [Unit]
-Description=Puma HTTP Server for {user.name}
+Description=Puma HTTP Server for {user}
 After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/{user.name}/www/app
-User={user.name}
-EnvironmentFile=-/home/{user.name}/.envfile
+WorkingDirectory=/home/{user}/www/app
+User={user}
+EnvironmentFile=-/home/{user}/.envfile
 ExecStart=bundle exec puma --config ../../config/puma.rb
 
 [Install]
 WantedBy=multi-user.target
 ''')
 
-            os.chmod('/etc/service/puma-{}/run'.format(user.name), 0o0755)
+            os.chmod('/etc/service/puma-{}/run'.format(user), 0o0755)
             with open(
-                    '/etc/sudoers.d/{}'.format(user.name), 'w',
+                    '/etc/sudoers.d/{}'.format(user), 'w',
                     encoding='utf-8') as f:
                 f.write('''\
 # runit
-{user.name} ALL = (root) NOPASSWD: /usr/bin/sv restart nginx, /usr/bin/sv reload nginx
-{user.name} ALL = (root) NOPASSWD: /usr/bin/sv restart puma-{user.name}, /usr/bin/sv reload puma-{user.name}
+{user} ALL = (root) NOPASSWD: /usr/bin/sv restart nginx, /usr/bin/sv reload nginx
+{user} ALL = (root) NOPASSWD: /usr/bin/sv restart puma-{user}, /usr/bin/sv reload puma-{user}
 # systemd
-{user.name} ALL = (root) NOPASSWD: /usr/bin/systemctl nginx restart, /usr/bin/systemctl nginx reload
-{user.name} ALL = (root) NOPASSWD: /usr/bin/systemctl puma-{user.name} restart, /usr/bin/systemctl puma-{user.name} restart
+{user} ALL = (root) NOPASSWD: /usr/bin/systemctl nginx restart, /usr/bin/systemctl nginx reload
+{user} ALL = (root) NOPASSWD: /usr/bin/systemctl puma-{user} restart, /usr/bin/systemctl puma-{user} restart
                     '''.format(user=user))
-            os.chmod('/etc/sudoers.d/{}'.format(user.name), 0o0600)
+            os.chmod('/etc/sudoers.d/{}'.format(user), 0o0600)
 
             logging.info('create postgresql database')
             p = subprocess.Popen(
@@ -368,17 +392,17 @@ WantedBy=multi-user.target
                 stdout=subprocess.PIPE)
 
             stdin = '''\
-DROP DATABASE IF EXISTS {user.name};
-DROP ROLE IF EXISTS {user.name};
-CREATE ROLE {user.name} WITH NOINHERIT LOGIN PASSWORD '{password}' VALID UNTIL 'infinity';
-CREATE DATABASE {user.name} WITH ENCODING 'UTF8' OWNER {user.name};
-REVOKE ALL PRIVILEGES ON DATABASE {user.name} FROM public;
-GRANT ALL PRIVILEGES ON DATABASE {user.name} TO {user.name};
-\\c {user.name}
+DROP DATABASE IF EXISTS {user};
+DROP ROLE IF EXISTS {user};
+CREATE ROLE {user} WITH NOINHERIT LOGIN PASSWORD '{password}' VALID UNTIL 'infinity';
+CREATE DATABASE {user} WITH ENCODING 'UTF8' OWNER {user};
+REVOKE ALL PRIVILEGES ON DATABASE {user} FROM public;
+GRANT ALL PRIVILEGES ON DATABASE {user} TO {user};
+\\c {user}
 DROP SCHEMA IF EXISTS public CASCADE;
-CREATE SCHEMA {user.name} AUTHORIZATION {user.name};
-CREATE SCHEMA production AUTHORIZATION {user.name};
-CREATE SCHEMA test AUTHORIZATION {user.name};
+CREATE SCHEMA {user} AUTHORIZATION {user};
+CREATE SCHEMA production AUTHORIZATION {user};
+CREATE SCHEMA test AUTHORIZATION {user};
             '''.format(
                 user=user, password=password)
 

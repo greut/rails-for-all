@@ -2,6 +2,16 @@
 
 Some scripts to create tons of Ruby on Rails setups on one "Ubuntu" machine.
 
+## Configure
+
+We need to have either a structure in `configure.py` or a json file.
+
+```console
+$ python github_keys.py GITHUB_USER GITHUB_KEY < students.tsv > accounts.json
+```
+
+If you prefer the hardcoded settings, create an empty `accounts.json` file.
+
 ## How to...
 
 ```console

@@ -22,4 +22,6 @@ ADD configure.py /usr/local/bin/configure.py
 RUN chmod +x /usr/local/bin/boot.sh \
  && chmod +x /usr/local/bin/configure.py
 
+ADD accounts.json /root
+
 CMD [ "/usr/local/bin/boot.sh" ]
