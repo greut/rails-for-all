@@ -422,7 +422,7 @@ WantedBy=multi-user.target
 {user} ALL = (root) NOPASSWD: /usr/bin/sv restart puma-{user}, /usr/bin/sv reload puma-{user}
 # systemd
 {user} ALL = (root) NOPASSWD: /bin/systemctl restart nginx, /bin/systemctl reload nginx
-{user} ALL = (root) NOPASSWD: /bin/systemctl restart puma-{user}, /bin/systemctl restart puma-{user}
+{user} ALL = (root) NOPASSWD: /bin/systemctl restart puma-{user}, /bin/systemctl reload puma-{user}
 '''.format(user=user))
             os.chmod('/etc/sudoers.d/{}'.format(user), 0o0600)
 
