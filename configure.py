@@ -407,6 +407,11 @@ WantedBy=multi-user.target
                     stdin=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     stdout=subprocess.PIPE)
+                subprocess.check_call(
+                    ['systemctl', 'start', 'puma-{}'.format(user)],
+                    stdin=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    stdout=subprocess.PIPE)
 
             with open(
                     '/etc/sudoers.d/{}'.format(user), 'w',
