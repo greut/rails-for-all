@@ -64,14 +64,15 @@ def main(argv):
     for row in reader:
         firstname = row[1]
         lastname = row[0]
-        username = format_user_name(firstname, lastname,
-                                    firstname in ("Cyril", "Julien"))
         github = row[4]
         if not github:
             continue
+
+        username = format_user_name(firstname, lastname, firstname == "Yoan")
         if username in users:
+            username = format_user_name(firstname, lastname, True)
             print(
-                "This username already exists {0}".format(username),
+                "{} {} is {}".format(firstname, lastname, username),
                 file=sys.stderr)
 
         users[username] = {

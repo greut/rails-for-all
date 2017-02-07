@@ -116,6 +116,7 @@ f=/etc/ssh/sshd_config
 mkdir /var/run/sshd
 sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication no/' $f
 sed -i 's/^AllowTcpForwarding yes/AllowTcpForwarding no/' $f
+# Only on docker
 rm -v /etc/ssh/ssh_host_*
 
 # Locale
@@ -142,6 +143,7 @@ f=/etc/login.defs
 sed -i 's/^UMASK.*$/UMASK 027/' $f
 
 ## Nginx
+# Only on docker (daemon off)
 f=/etc/nginx/nginx.conf
 rm /etc/nginx/sites-enabled/default \
  && rm -r /var/www/html \
