@@ -46,7 +46,6 @@ apt-get install -q -y \
     pwgen \
     python3-pip \
     python3-venv \
-    runit \
     software-properties-common \
     sqlite3 \
     ssmtp \
@@ -56,16 +55,19 @@ apt-get install -q -y \
     vim \
     wget
 
+if [ "$DOCKER" != "" ]; then
+    apt-get install -q -y runit
 
-# Add Tini (reaping problem)
-wget https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini --quiet -O /tini
-sig=`sha256sum /tini | cut -d " " -f1`
-expected=790c9eb6e8a382fdcb1d451f77328f1fac122268fa6f735d2a9f1b1670ad74e3
-if [ "$expected" = "$sig" ]; then
-    chmod +x /tini
-else
-    echo "tini checksum doesn't match ours."
-    exit 1
+    # Add Tini (reaping problem)
+    wget https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini --quiet -O /tini
+    sig=`sha256sum /tini | cut -d " " -f1`
+    expected=790c9eb6e8a382fdcb1d451f77328f1fac122268fa6f735d2a9f1b1670ad74e3
+    if [ "$expected" = "$sig" ]; then
+        chmod +x /tini
+    else
+        echo "tini checksum doesn't match ours."
+        exit 1
+    fi
 fi
 
 # Ruby NG
@@ -106,19 +108,6 @@ rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 ruby-switch --set ruby$RUBY_VERSION
 echo "gem: --no-document" > /etc/gemrc
 
-# OpenSSH Server
-#
-# * Disable password authentication
-# * Disallow TCP forwarding
-# * Delete any configured host keys (boot.sh)
-#
-f=/etc/ssh/sshd_config
-mkdir /var/run/sshd
-sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication no/' $f
-sed -i 's/^AllowTcpForwarding yes/AllowTcpForwarding no/' $f
-# Only on docker
-rm -v /etc/ssh/ssh_host_*
-
 # Locale
 for l in "fr_CH" "de_CH" "it_CH" "en_US";do
     locale-gen $l
@@ -126,27 +115,41 @@ for l in "fr_CH" "de_CH" "it_CH" "en_US";do
 done
 update-locale LANG=fr_CH.UTF-8 LC_MESSAGES=POSIX
 
-# Syslog
-#
-# * Output all the things to stdout!
-#
-f=/etc/syslog-ng/syslog-ng.conf
-sed -i 's/system()/#system()/' $f
-sed -i 's/^\(# The root\)/# Stdout\/Stderr\n\n\1/' $f
-sed -i 's/^\(# The root\)/destination d_stdout { pipe("\/dev\/stdout"); };\n\1/' $f
-sed -i 's/^\(# The root\)/destination d_stderr { pipe("\/dev\/stderr"); };\n\n\1/' $f
-sed -i 's/\(destination\)(d_[^)]*)/\1(d_stdout)/g' $f
-sed -i 's/\(filter(f_console);\)\s*destination(d_stdout);/\1/g' $f
-
-# Good umask
+# Strict umask
 f=/etc/login.defs
 sed -i 's/^UMASK.*$/UMASK 027/' $f
 
-## Nginx
-# Only on docker (daemon off)
-f=/etc/nginx/nginx.conf
-rm /etc/nginx/sites-enabled/default \
- && rm -r /var/www/html \
- && sed -i 's/\(worker_processes\) .*;/\1 auto;\ndaemon off;/' $f \
- && sed -i 's/\/var\/log\/nginx\/access.log/\/dev\/stdout/' $f \
- && sed -i 's/\/var\/log\/nginx\/error.log/\/dev\/stdout/' $f
+if [ "$DOCKER" != "" ]; then
+    # OpenSSH Server
+    #
+    # * Disable password authentication
+    # * Disallow TCP forwarding
+    # * Delete any configured host keys (boot.sh)
+    #
+    f=/etc/ssh/sshd_config
+    mkdir /var/run/sshd
+    sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication no/' $f
+    sed -i 's/^AllowTcpForwarding yes/AllowTcpForwarding no/' $f
+
+    rm -v /etc/ssh/ssh_host_*
+
+    # Syslog
+    #
+    # * Output all the things to stdout!
+    #
+    f=/etc/syslog-ng/syslog-ng.conf
+    sed -i 's/system()/#system()/' $f
+    sed -i 's/^\(# The root\)/# Stdout\/Stderr\n\n\1/' $f
+    sed -i 's/^\(# The root\)/destination d_stdout { pipe("\/dev\/stdout"); };\n\1/' $f
+    sed -i 's/^\(# The root\)/destination d_stderr { pipe("\/dev\/stderr"); };\n\n\1/' $f
+    sed -i 's/\(destination\)(d_[^)]*)/\1(d_stdout)/g' $f
+    sed -i 's/\(filter(f_console);\)\s*destination(d_stdout);/\1/g' $f
+
+    ## Nginx
+    f=/etc/nginx/nginx.conf
+    rm /etc/nginx/sites-enabled/default
+    rm -r /var/www/html
+    sed -i 's/\(worker_processes\) .*;/\1 auto;\ndaemon off;/' $f
+    sed -i 's/\/var\/log\/nginx\/access.log/\/dev\/stdout/' $f
+    sed -i 's/\/var\/log\/nginx\/error.log/\/dev\/stdout/' $f
+fi

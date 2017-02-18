@@ -5,10 +5,10 @@ ENTRYPOINT ["/tini", "--"]
 
 # Install all the stuff aside
 ADD install.sh /
-RUN sh /install.sh \
+RUN DOCKER=1 sh /install.sh \
  && rm /install.sh
 
-EXPOSE 22 80
+EXPOSE 22 80 443
 
 # Runit
 ADD nginx.sh /etc/service/nginx/run
