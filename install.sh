@@ -99,6 +99,12 @@ apt-get install -q -y \
     ruby${RUBY_VERSION}-dev \
     ruby-switch
 
+if [ "$DOCKER" = "" ]; then
+    apt-get install -q -y \
+        postgresql-${POSTGRES_VERSION} \
+        postgresql-contrib-${POSTGRES_VERSION}
+fi
+
 # Post Installation
 apt-get autoremove -y
 apt-get clean
