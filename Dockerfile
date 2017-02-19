@@ -13,8 +13,10 @@ EXPOSE 22 80 443
 # Runit
 ADD nginx.sh /etc/service/nginx/run
 ADD sshd.sh /etc/service/sshd/run
+ADD postgres.sh /etc/service/postgres/run
 RUN chmod +x /etc/service/nginx/run \
- && chmod +x /etc/service/sshd/run
+ && chmod +x /etc/service/sshd/run \
+ && chmod +x /etc/service/postgres/run
 
 # Bootstrap
 ADD boot.sh /usr/local/bin/boot.sh

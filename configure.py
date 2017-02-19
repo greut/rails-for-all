@@ -22,6 +22,7 @@ import random
 import subprocess
 import sys
 import tempfile
+import time
 
 # Logging
 logger = logging.getLogger(__name__)
@@ -29,9 +30,6 @@ logger.setLevel(logging.DEBUG)
 
 with open('/root/accounts.json', 'r', encoding='utf-8') as f:
     USERS = json.load(f)
-
-SYSTEMD = True
-RUNIT = False
 
 if not len(USERS):
     logger.info('accounts.json is empty. Using the hardcoded folks.')
@@ -60,9 +58,12 @@ if not len(USERS):
         #        }
     }
 
-HOSTNAME = "capistrano"
-POSTGRES_HOST = "localhost"
-POSTGRES_ROOT_PASSWORD = "root"
+HOSTNAME = os.environ.get("HOSTNAME", "capistrano")
+POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "localhost")
+POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "root")
+
+SYSTEMD = "RUNIT" not in os.environ
+RUNIT = "RUNIT" in os.environ
 
 
 def pwgen(length=64):
@@ -278,19 +279,46 @@ gem 'rack'
     return 0
 
 
+def init_postgres(password):
+    p = pwd.getpwnam('postgres')
+    uid, gid = p.pw_uid, p.pw_gid
+    homedir = p.pw_dir
+
+    os.initgroups('postgres', gid)
+    os.setgid(gid)
+    os.setuid(uid)
+    os.chdir(homedir)
+
+    subprocess.check_call([
+        'psql', '-c',
+        "ALTER USER postgres WITH PASSWORD '{}';".format(password)
+    ])
+
+
 def main(argv):
     environ = {}
     environ["GEM_HOME"] = ".gem/ruby/2.4.0"
-    environ["POSTGRES_HOST"] = os.environ.get('POSTGRES_HOST', POSTGRES_HOST)
+    environ["POSTGRES_HOST"] = POSTGRES_HOST
     environ["POSTGRES_PORT"] = "5432"
 
     delete = False if len(argv) < 2 else argv[1] == 'DELETE'
 
+    # Handle a local Postgres setup.
+    if POSTGRES_HOST == 'localhost':
+        logger.info('init postgres (with 5s of pause)')
+
+        # Wait for Postgres
+        time.sleep(5)
+        p = multiprocessing.Process(
+            target=init_postgres, args=(POSTGRES_PASSWORD, ))
+        p.start()
+        p.join()
+
     with tempfile.NamedTemporaryFile() as fp:
         logging.info('create temporary .pgpass')
         fp.write(
-            bytearray('{}:*:*:postgres:{}'.format(environ[
-                "POSTGRES_HOST"], POSTGRES_ROOT_PASSWORD), 'utf-8'))
+            bytearray('{}:*:*:postgres:{}'.format(environ["POSTGRES_HOST"],
+                                                  POSTGRES_PASSWORD), 'utf-8'))
         fp.seek(0)
         os.chmod(fp.name, mode=0o600)
         environ['PGPASSFILE'] = fp.name

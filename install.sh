@@ -94,15 +94,22 @@ apt-get update
 apt-get install -q -y \
     libpq-dev \
     nodejs \
+    postgresql-${POSTGRES_VERSION} \
     postgresql-client-${POSTGRES_VERSION} \
+    postgresql-contrib-${POSTGRES_VERSION} \
     ruby${RUBY_VERSION} \
     ruby${RUBY_VERSION}-dev \
     ruby-switch
 
-if [ "$DOCKER" = "" ]; then
-    apt-get install -q -y \
-        postgresql-${POSTGRES_VERSION} \
-        postgresql-contrib-${POSTGRES_VERSION}
+if [ "$DOCKER" != "" ]; then
+    f=/etc/postgresql/9.6/main/postgresql.conf
+    sed -i 's/^#log_destination/log_destination/g' $f
+    sed -i 's/^#logging_collector/logging_collector/g' $f
+    sed -i 's/^ssl/#ssl/g' $f
+
+    d=/var/run/postgresql/9.6-main.pg_stat_tmp
+    mkdir $d
+    chown postgres:postgres $d
 fi
 
 # Post Installation

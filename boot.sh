@@ -9,6 +9,6 @@ if [ 0 -eq `ls /etc/ssh/ssh_host_* | wc -l` ]; then
 fi
 
 # create the users and finalize the setup.
-/usr/local/bin/configure.py
+/usr/local/bin/configure.py &
 
 exec /usr/bin/runsvdir -P /etc/service
