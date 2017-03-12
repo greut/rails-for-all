@@ -420,10 +420,10 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/{user}/www/app
+WorkingDirectory=/home/{user}
 User={user}
 EnvironmentFile=-/home/{user}/.envfile
-ExecStart=/home/{user}/{gem_home}/bin/bundle exec puma --config ../../config/puma.rb
+ExecStart=/home/{user}/{gem_home}/bin/puma --config config/puma.rb
 
 [Install]
 WantedBy=multi-user.target
