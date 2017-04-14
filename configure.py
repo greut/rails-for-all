@@ -400,13 +400,12 @@ export PATH="$PATH:$HOME/{gem_home}/bin"
 cd "$HOME/www/app"
 
 ENV_DIR="$HOME/.env"
-PUMA_ENV="../../config/puma.rb"
-COMMAND="bundle exec puma --config $PUMA_ENV"
+PUMA_ENV="$HOME/config/puma.rb"
+COMMAND="puma --config $PUMA_ENV"
 
 exec 2>&1
 exec chpst -u "{user}" -e "$ENV_DIR" $COMMAND
-                    '''.format(
-                        user=user, gem_home=environ["GEM_HOME"]))
+                    '''.format(user=user, gem_home=environ["GEM_HOME"]))
                 os.chmod('/etc/service/puma-{}/run'.format(user), 0o0755)
 
             if SYSTEMD:
